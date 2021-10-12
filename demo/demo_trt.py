@@ -311,42 +311,6 @@ def main():
             print('video has been saved as {}'.format(save_path))
             out.release()
 
-    elif args.image:
-        # estimate on the image
-        last_time = time.time()
-        image = image_bgr[:, :, [2, 1, 0]]
-        type(image)
-        input = []
-        img = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        img_tensor = torch.from_numpy(img/255.).permute(2,0,1).float().to(CTX)
-        input.append(img_tensor)
-
-        # object detection box
-        pred_boxes = get_person_detection_boxes(box_model, input, threshold=0.9)
-
-        # pose estimation
-        if len(pred_boxes) >= 1:
-            for box in pred_boxes:
-                center, scale = box_to_center_scale(box, cfg.MODEL.IMAGE_SIZE[0], cfg.MODEL.IMAGE_SIZE[1])
-                image_pose = image.copy() if cfg.DATASET.COLOR_RGB else image_bgr.copy()
-                pose_preds = get_pose_estimation_prediction_trt(pose_model, image_pose, center, scale)
-                if len(pose_preds)>=1:
-                    for kpt in pose_preds:
-                        draw_pose(kpt,image_bgr) # draw the poses
-        
-        if args.showFps:
-            fps = 1/(time.time()-last_time)
-            img = cv2.putText(image_bgr, 'fps: '+ "%.2f"%(fps), (25, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
-        
-        if args.write:
-            save_path = 'output.jpg'
-            cv2.imwrite(save_path,image_bgr)
-            print('the result image has been saved as {}'.format(save_path))
-
-        cv2.imshow('demo',image_bgr)
-        if cv2.waitKey(0) & 0XFF==ord('q'):
-            cv2.destroyAllWindows()
-
     elif args.img_root:
     # estimate on the folder of images
         for imgPath in tqdm(img_list):
