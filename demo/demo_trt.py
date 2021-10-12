@@ -144,8 +144,8 @@ def get_pose_estimation_prediction_trt(pose_model, image, center, scale):
     TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
     trt_runtime = trt.Runtime(TRT_LOGGER)
 
-    heatmap_height = 72
-    heatmap_width = 96
+    heatmap_height = args.heatmap_height
+    heatmap_width = args.heatmap_width
     batch_size = 1
     engine = eng.load_engine(trt_runtime, pose_model)
     h_input, d_input, h_output, d_output, stream = inf.allocate_buffers(engine, batch_size, trt.float32)
@@ -205,9 +205,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train keypoints network')
     # general
     parser.add_argument('--cfg', type=str, default='demo/inference-config.yaml')
+    parser.add_argument('--heatmap-height', type=str)
+    parser.add_argument('--heatmap-width', type=str)
     parser.add_argument('--video', type=str)
     parser.add_argument('--webcam',action='store_true')
-    parser.add_argument('--image',type=str)
     parser.add_argument('--img-root',type=str)
     parser.add_argument('--out-root',type=str)
     parser.add_argument('--write',action='store_true')
