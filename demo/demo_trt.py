@@ -144,14 +144,15 @@ def get_pose_estimation_prediction_trt(pose_model, image, center, scale):
     TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
     trt_runtime = trt.Runtime(TRT_LOGGER)
 
-    heatmap_height = args.heatmap_height
-    heatmap_width = args.heatmap_width
+    heatmap_height = 72
+    heatmap_width = 96
     batch_size = 1
     engine = eng.load_engine(trt_runtime, pose_model)
     h_input, d_input, h_output, d_output, stream = inf.allocate_buffers(engine, batch_size, trt.float32)
     t1 = time.time()
     output = inf.do_inference(engine, model_input, h_input, d_input, h_output, d_output, stream, batch_size, heatmap_width, heatmap_height)
     t2 = time.time()
+    print('FPS =', 1/(t2 - t1))
 
     preds, _ = get_final_preds(
             cfg,
@@ -202,11 +203,10 @@ def box_to_center_scale(box, model_image_width, model_image_height):
     return center, scale
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='infernece TRT')
+    parser = argparse.ArgumentParser(description='Train keypoints network')
     # general
-    parser.add_argument('--pose-model', type=str')
-    parser.add_argument('--heatmap-height', type=str)
-    parser.add_argument('--heatmap-width', type=str)
+    parser.add_argument('--cfg', type=str, default='demo/inference-config.yaml')
+    parser.add_argument('--pose-model',type=str)
     parser.add_argument('--img-root',type=str)
     parser.add_argument('--out-root',type=str)
     parser.add_argument('--showFps',action='store_true')
@@ -241,50 +241,48 @@ def main():
 
     pose_model = args.pose_model
 
-    if cfg.TEST.MODEL_FILE:
-        print('=> loading model from {}'.format(cfg.TEST.MODEL_FILE))
-    else:
-        print('expected model defined in config at TEST.MODEL_FILE')
 
 
-    # Loading image list from folder
 
+    # Loading an video or an image or webcam 
     if args.img_root:
         img_list = [os.path.join(args.img_root, i) for i in os.listdir(args.img_root)]
     else:
-        print('please use --image-root to define the input.')
-
+        print('please use --video or --webcam or --image to define the input.')
+        return 
+        
+    if args.img_root:
     # estimate on the folder of images
-    for imgPath in tqdm(img_list):
-        image_bgr = cv2.imread(imgPath)
-        last_time = time.time()
-        image = image_bgr[:, :, [2, 1, 0]]
-        input = []
-        img = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        img_tensor = torch.from_numpy(img/255.).permute(2,0,1).float().to(CTX)
-        input.append(img_tensor)
+        for imgPath in tqdm(img_list):
+            image_bgr = cv2.imread(imgPath)
+            last_time = time.time()
+            image = image_bgr[:, :, [2, 1, 0]]
+            input = []
+            img = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+            img_tensor = torch.from_numpy(img/255.).permute(2,0,1).float().to(CTX)
+            input.append(img_tensor)
 
-        # object detection box
-        pred_boxes = get_person_detection_boxes(box_model, input, threshold=0.9)
+            # object detection box
+            pred_boxes = get_person_detection_boxes(box_model, input, threshold=0.9)
 
-        # pose estimation
-        if len(pred_boxes) >= 1:
-            for box in pred_boxes:
-                center, scale = box_to_center_scale(box, cfg.MODEL.IMAGE_SIZE[0], cfg.MODEL.IMAGE_SIZE[1])
-                image_pose = image.copy() if cfg.DATASET.COLOR_RGB else image_bgr.copy()
-                pose_preds = get_pose_estimation_prediction_trt(pose_model, image_pose, center, scale)
-                if len(pose_preds)>=1:
-                    for kpt in pose_preds:
-                        draw_pose(kpt,image_bgr) # draw the poses   
+            # pose estimation
+            if len(pred_boxes) >= 1:
+                for box in pred_boxes:
+                    center, scale = box_to_center_scale(box, cfg.MODEL.IMAGE_SIZE[0], cfg.MODEL.IMAGE_SIZE[1])
+                    image_pose = image.copy() if cfg.DATASET.COLOR_RGB else image_bgr.copy()
+                    pose_preds = get_pose_estimation_prediction_trt(pose_model, image_pose, center, scale)
+                    if len(pose_preds)>=1:
+                        for kpt in pose_preds:
+                            draw_pose(kpt,image_bgr) # draw the poses   
 
-        save_path = os.path.join(args.out_root, imgPath.split('/')[-1])
-        cv2.imwrite(save_path, image_bgr)
-        print('Saved!')
+            save_path = os.path.join(args.out_root, imgPath.split('/')[-1])
+            cv2.imwrite(save_path, image_bgr)
+            print('Saved!')
 
-        if args.showFps:
-            fps = 1/(time.time()-last_time)
-            img = cv2.putText(image_bgr, 'fps: '+ "%.2f"%(fps), (25, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
-
+            if args.showFps:
+                fps = 1/(time.time()-last_time)
+                img = cv2.putText(image_bgr, 'fps: '+ "%.2f"%(fps), (25, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
+            
             
 if __name__ == '__main__':
     main()
