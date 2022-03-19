@@ -1,8 +1,8 @@
 # Deep High-Resolution Representation Learning for Human Pose Estimation (CVPR 2019) with TensorRT inference
 
 ## Introduction
-That's my integration of TensorRT to Pose Estimation repo of HRNet.
-Despite the name inference working with other models whic use the same post-proceccing.
+That's my integration of TensorRT for Pose Estimation repo of HRNet.
+Despite the name inference working with other models which use the same post-processing.
 
 ## Quick start
 ### Installation
